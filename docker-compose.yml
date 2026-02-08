@@ -1,0 +1,69 @@
+services:
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: movie_parser_php
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+      - ./docker/php/conf.d/99-app.ini:/usr/local/etc/php/conf.d/99-app.ini
+      - ./docker/php/conf.d/99-xdebug.ini:/usr/local/etc/php/conf.d/99-xdebug.ini
+    environment:
+      APP_ENV: dev
+      XDEBUG_MODE: debug,develop
+      PHP_IDE_CONFIG: serverName=movie-parser
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: movie_parser_postgres
+    environment:
+      POSTGRES_DB: movie_parser
+      POSTGRES_USER: symfony
+      POSTGRES_PASSWORD: symfony
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U symfony -d movie_parser"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mongo:
+    image: mongo:7
+    container_name: movie_parser_mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: movie_parser_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: rabbit
+      RABBITMQ_DEFAULT_PASS: rabbit
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+volumes:
+  postgres_data:
+  mongo_data:
+  rabbitmq_data:
